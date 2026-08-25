@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Defense &amp; Cyber Threat Intelligence Hub</title>
+<style>
+  :root { --bg:#0b1020; --panel:#141b33; --line:#25304f; --txt:#e8ecf7; --muted:#94a1c2; --accent:#4ea8ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.55 system-ui, sans-serif; }
+  header { padding:20px 24px; border-bottom:1px solid var(--line); }
+  h1 { margin:0; font-size:19px; letter-spacing:.4px; }
+  main { display:grid; gap:18px; grid-template-columns:1fr 1fr; padding:24px; }
+  @media (max-width:900px){ main { grid-template-columns:1fr; } }
+  textarea { width:100%; min-height:220px; background:#0e1428; color:var(--txt);
+             border:1px solid var(--line); border-radius:10px; padding:12px; font:13px/1.5 ui-monospace,monospace; }
+  button { background:var(--accent); color:#04122a; border:0; border-radius:8px;
+           padding:10px 16px; font-weight:600; cursor:pointer; margin:10px 8px 0 0; }
+  button.ghost { background:transparent; color:var(--accent); border:1px solid var(--accent); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0; }
+  .tag { border:1px solid var(--line); border-radius:999px; padding:2px 10px; font-size:12px; color:var(--muted); }
+  .sev { font-weight:700; border-radius:6px; padding:2px 8px; }
+  .CRITICAL{background:#ff4d4d;color:#210505}.HIGH{background:#ff9f43;color:#2a1500}
+  .MEDIUM{background:#ffd93d;color:#2b2200}.LOW{background:#4ade80;color:#052b13}
+  pre { background:#0e1428; border:1px solid var(--line); border-radius:10px; padding:12px;
+        overflow:auto; font-size:12px; max-height:260px; }
+  label { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.6px; }
+</style>
+</head>
+<body>
+<header><h1>Defense &amp; Cyber Threat Intelligence Hub</h1></header>
+<main>
+  <section>
+    <label>Paste a news report or cyber advisory</label>
+    <textarea id="input">Advisory: APT28 operators are actively exploiting CVE-2024-21762 on internet-facing VPN gateway appliances of defence contractors. Ransomware payloads were dropped after initial access. Compromise reported from 203.0.113.45 targeting srv-vpn01.corp.local. Report incidents to soc.analyst@example.com.</textarea>
+    <div>
+      <button onclick="run('/api/redact')" class="ghost">1. Preview redaction</button>
+      <button onclick="run('/api/analyze')">2. Generate threat card</button>
+    </div>
+    <div id="redact"></div>
+  </section>
+  <section id="out"></section>
+</main>
+<script>
+async function run(url){
+  const text = document.getElementById('input').value;
+  const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+  const data = await res.json();
+  if(url.endsWith('redact')){
+    document.getElementById('redact').innerHTML =
+      '<div class="card"><label>Sanitized text sent to AI</label><pre>'+esc(data.sanitizedText)+'</pre>'+
+      '<div class="row">'+(data.findings.length?data.findings.map(f=>'<span class="tag">'+esc(f)+'</span>').join(''):'<span class="tag">no sensitive data found</span>')+'</div></div>';
+    return;
+  }
+  render(data);
+}
+function render(c){
+  document.getElementById('out').innerHTML =
+    '<div class="card"><div class="row"><span class="sev '+c.severity+'">'+c.severity+'</span>'+
+    '<span class="tag">'+esc(c.threatActor)+'</span><span class="tag">'+esc(c.targetSystem)+'</span>'+
+    c.cves.map(v=>'<span class="tag">'+esc(v)+'</span>').join('')+'</div>'+
+    '<h3>'+esc(c.title)+'</h3><p style="color:var(--muted)">'+esc(c.summary)+'</p>'+
+    '<label>Action items</label><ul>'+c.actionItems.map(a=>'<li>'+esc(a)+'</li>').join('')+'</ul>'+
+    '<label>STIX 2.1 bundle</label><pre>'+esc(JSON.stringify(c.stixBundle,null,2))+'</pre></div>';
+}
+function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+</script>
+</body>
+</html>
